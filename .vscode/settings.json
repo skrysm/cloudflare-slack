@@ -17,4 +17,8 @@
 		// Inconsistent code blocks are sometimes nicer to write
 		"MD046": false,
 	},
+
+	"files.associations": {
+		"wrangler.json": "jsonc"
+	}
 }
