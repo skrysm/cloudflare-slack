@@ -8,7 +8,10 @@ Set Slack incoming webhook URL (requires previous call to `npm install`):
 
 ```sh
 npx wrangler secret put SLACK_WEBHOOK_URL
+npx wrangler secret put SHARED_PASSWORD
 ```
+
+Clients must include the shared password in the `X-Shared-Password` HTTP header on every request.
 
 ## Deployment
 
@@ -17,6 +20,10 @@ Deploy via (requires previous call to `npm install`):
 ```sh
 npx wrangler deploy
 ```
+
+## Local test script
+
+Use `./send-notification.sh <subdomain> "Hello from test"` to hit the deployed worker at `https://notify.<subdomain>.workers.dev`. The script prompts for the shared password before sending.
 
 ## Details
 

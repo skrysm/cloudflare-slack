@@ -12,10 +12,16 @@
  */
 export interface Env {
   SLACK_WEBHOOK_URL: string;
+  SHARED_PASSWORD: string;
 }
 
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
+        const providedPassword = request.headers.get("x-shared-password");
+        if (!providedPassword || providedPassword !== env.SHARED_PASSWORD) {
+            return new Response("Unauthorized", { status: 401 });
+        }
+
         const url = new URL(request.url);
         let text: string | null = url.searchParams.get("text");
         if (!text) {
@@ -44,7 +50,7 @@ export default {
             );
         }
 
-        // 5) Respond to caller
-        return new Response("OK", { status: 200 });
+        // 5) Respond to caller with no body
+        return new Response(null, { status: 204 });
     },
 } satisfies ExportedHandler<Env>;
