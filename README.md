@@ -2,6 +2,14 @@
 
 This repo contains a Cloudflare Worker script to send notifications to Slack.
 
+## Configuration
+
+Set Slack incoming webhook URL (requires previous call to `npm install`):
+
+```sh
+npx wrangler secret put SLACK_WEBHOOK_URL
+```
+
 ## Deployment
 
 Deploy via (requires previous call to `npm install`):

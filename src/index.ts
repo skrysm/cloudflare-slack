@@ -10,9 +10,41 @@
  *
  * Learn more at https://developers.cloudflare.com/workers/
  */
+export interface Env {
+  SLACK_WEBHOOK_URL: string;
+}
 
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
-		return new Response('Hello Worker!');
-	},
+        const url = new URL(request.url);
+        let text: string | null = url.searchParams.get("text");
+        if (!text) {
+            return new Response("Missing 'text' parameter", { status: 400 });
+        }
+
+        // 3) Build Slack payload
+        const payload = {
+            text,
+        };
+
+        // 4) Send to Slack
+        const slackResp = await fetch(env.SLACK_WEBHOOK_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (!slackResp.ok) {
+            const errText = await slackResp.text();
+            return new Response(
+                `Slack error: ${slackResp.status} ${slackResp.statusText} - ${errText}`,
+                { status: 502 }
+            );
+        }
+
+        // 5) Respond to caller
+        return new Response("OK", { status: 200 });
+    },
 } satisfies ExportedHandler<Env>;
