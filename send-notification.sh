@@ -18,7 +18,7 @@ if [[ -z "$PASSWORD" ]]; then
 fi
 
 curl -sS --fail-with-body \
+  -X POST \
+  -G --data-urlencode "text=${TEXT}" \
   -H "X-Shared-Password: ${PASSWORD}" \
-  --get \
-  --data-urlencode "text=${TEXT}" \
   "${WORKER_URL}"
