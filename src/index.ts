@@ -14,61 +14,53 @@ type RequestData = {
     text?: string;
 };
 
-type ParseResult =
-    | { success: true; data: RequestData }
-    | { success: false; response: Response };
+class HttpError extends Error {
+    status: number;
 
-type SlackSendResult =
-    | { success: true }
-    | { success: false; response: Response };
+    constructor(status: number, message: string) {
+        super(message);
+        this.status = status;
+    }
+}
 
 export default {
     async fetch(request, env): Promise<Response> {
-        const authResponse = authenticate(request, env);
-        if (authResponse) {
-            return authResponse;
-        }
+        try {
+            authenticate(request, env);
+            ensureSupportedMethod(request);
 
-        const methodResponse = ensureSupportedMethod(request);
-        if (methodResponse) {
-            return methodResponse;
-        }
+            const requestData = await parseRequestData(request);
+            const text = buildSlackText(requestData);
+            if (!text) {
+                throw new HttpError(400, "Missing server event details or 'text' parameter");
+            }
 
-        const parseResult = await parseRequestData(request);
-        if (!parseResult.success) {
-            return parseResult.response;
-        }
+            await sendToSlack(env.SLACK_WEBHOOK_URL, text);
 
-        const text = buildSlackText(parseResult.data);
-        if (!text) {
-            return new Response("Missing server event details or 'text' parameter", { status: 400 });
+            return new Response(null, { status: 204 });
+        } catch (error) {
+            if (error instanceof HttpError) {
+                return new Response(error.message, { status: error.status });
+            }
+            throw error;
         }
-
-        const slackResult = await sendToSlack(env.SLACK_WEBHOOK_URL, text);
-        if (!slackResult.success) {
-            return slackResult.response;
-        }
-
-        return new Response(null, { status: 204 });
     },
 } satisfies ExportedHandler<Env>;
 
-function authenticate(request: Request, env: Env): Response | null {
+function authenticate(request: Request, env: Env): void {
     const providedPassword = request.headers.get("x-shared-password");
     if (!providedPassword || providedPassword !== env.SHARED_PASSWORD) {
-        return new Response("Unauthorized", { status: 401 });
+        throw new HttpError(401, "Unauthorized");
     }
-    return null;
 }
 
-function ensureSupportedMethod(request: Request): Response | null {
+function ensureSupportedMethod(request: Request): void {
     if (request.method !== "POST") {
-        return new Response("Only POST is supported.", { status: 405 });
+        throw new HttpError(405, "Only POST is supported.");
     }
-    return null;
 }
 
-async function parseRequestData(request: Request): Promise<ParseResult> {
+async function parseRequestData(request: Request): Promise<RequestData> {
     const url = new URL(request.url);
     const search = url.searchParams;
 
@@ -80,7 +72,7 @@ async function parseRequestData(request: Request): Promise<ParseResult> {
         try {
             body = await request.json<Record<string, unknown>>();
         } catch {
-            return { success: false, response: new Response("Invalid JSON body", { status: 400 }) };
+            throw new HttpError(400, "Invalid JSON body");
         }
     }
 
@@ -90,7 +82,7 @@ async function parseRequestData(request: Request): Promise<ParseResult> {
         text: String(body?.text ?? search.get("text") ?? "").trim() || undefined,
     };
 
-    return { success: true, data };
+    return data;
 }
 
 function buildSlackText(data: RequestData): string | null {
@@ -113,7 +105,7 @@ function buildSlackText(data: RequestData): string | null {
 async function sendToSlack(
     webhookUrl: string,
     text: string
-): Promise<SlackSendResult> {
+): Promise<void> {
     const payload = {
         text,
     }
@@ -127,14 +119,9 @@ async function sendToSlack(
 
     if (!slackResponse.ok) {
         const errText = await slackResponse.text();
-        return {
-            success: false,
-            response: new Response(
-                `Slack error: ${slackResponse.status} ${slackResponse.statusText} - ${errText}`,
-                { status: 502 }
-            ),
-        };
+        throw new HttpError(
+            502,
+            `Slack error: ${slackResponse.status} ${slackResponse.statusText} - ${errText}`
+        );
     }
-
-    return { success: true };
 }
