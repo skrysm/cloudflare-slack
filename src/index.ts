@@ -12,6 +12,7 @@ type RequestData = {
     event?: string;
     host?: string;
     text?: string;
+    icon?: string;
 };
 
 class HttpError extends Error {
@@ -31,10 +32,6 @@ export default {
 
             const requestData = await parseRequestData(request);
             const text = buildSlackText(requestData);
-            if (!text) {
-                throw new HttpError(400, "Missing server event details or 'text' parameter");
-            }
-
             await sendToSlack(env.SLACK_WEBHOOK_URL, text);
 
             return new Response(null, { status: 204 });
@@ -80,26 +77,43 @@ async function parseRequestData(request: Request): Promise<RequestData> {
         event: String(body?.event ?? search.get("event") ?? "").toLowerCase() || undefined,
         host: String(body?.host ?? search.get("host") ?? "").trim() || undefined,
         text: String(body?.text ?? search.get("text") ?? "").trim() || undefined,
+        icon: String(body?.icon ?? search.get("icon") ?? "").trim() || undefined,
     };
 
     return data;
 }
 
-function buildSlackText(data: RequestData): string | null {
-    if (data.text) {
-        return data.text;
+function buildSlackText(data: RequestData): string {
+    if (data.event) {
+        if (data.event === "startup") {
+            return buildSlackTextCore("Server online", "🟢", data.host);
+        }
+        else if (data.event === "shutdown") {
+            return buildSlackTextCore("Server shutting down", "🔴", data.host);
+        }
+        else {
+            throw new HttpError(400, "Unsupported event");
+        }
+    }
+    else if (data.text) {
+        return buildSlackTextCore(data.text, data.icon, data.host);
+    }
+    else {
+        throw new HttpError(400, "Neither 'text' nor 'event' have been specified.");
+    }
+}
+
+function buildSlackTextCore(text: string, icon?: string, host?: string): string {
+    let resultText = text;
+
+    if (host) {
+        resultText = `*${host}:* ${resultText}`;
+    }
+    if (icon) {
+        resultText = `${icon} ${resultText}`;
     }
 
-    if (data.event === "startup" || data.event === "shutdown") {
-        const statusLine =
-            data.event === "startup"
-                ? `🟢 Server online: ${data.host}`
-                : `🔴 Server shutting down: ${data.host}`;
-
-        return statusLine;
-    }
-
-    return null;
+    return resultText;
 }
 
 async function sendToSlack(

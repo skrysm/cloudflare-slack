@@ -54,6 +54,8 @@ curl -sS --fail-with-body \
 Parameters:
 
 * `text`: raw message (is ignored if `event` is present)
+* `icon`: an icon to prepend to the text
+* `host`: server name/hostname
 
 ### Debian systemd hook example
 
