@@ -27,30 +27,33 @@ Use `./send-notification.sh <subdomain> 'Hello from test'` to hit the deployed w
 
 ## Usage
 
-Send a structured server event (recommended):
+Send a structured server event:
 
 ```sh
 curl -sS --fail-with-body \
+  -H "X-Shared-Password: $PASSWORD" \
   -X POST \
-  -H "X-Shared-Password: ${PASSWORD}" \
-  "https://notify.${SUBDOMAIN}.workers.dev?event=startup&host=$(hostname -f)"
+  "https://notify.$SUBDOMAIN.workers.dev?event=startup&host=$(hostname -f)"
 ```
 
 Parameters:
 
 * `event`: `startup` or `shutdown` (lowercase)
 * `host`: server name/hostname
-* `text`: optional raw message; if present, it bypasses the structured format
 
 Simple text-only notification:
 
 ```sh
 curl -sS --fail-with-body \
+  -H "X-Shared-Password: $PASSWORD" \
   -X POST \
   -G --data-urlencode "text=hello world" \
-  -H "X-Shared-Password: ${PASSWORD}" \
-  "https://notify.${SUBDOMAIN}.workers.dev"
+  "https://notify.$SUBDOMAIN.workers.dev"
 ```
+
+Parameters:
+
+* `text`: raw message (is ignored if `event` is present)
 
 ### Debian systemd hook example
 
@@ -61,12 +64,11 @@ Drop a tiny helper (e.g., `/usr/local/bin/notify-server-state`) and mark it exec
 set -euo pipefail
 EVENT="$1"
 PASSWORD="...shared password..."
-WORKER_URL="https://notify.${SUBDOMAIN}.workers.dev"
+WORKER_URL="https://notify.$SUBDOMAIN.workers.dev"
 curl -sS --fail-with-body \
-  -H "X-Shared-Password: ${PASSWORD}" \
-  -H "Content-Type: application/json" \
-  -d "{\"event\":\"${EVENT}\",\"host\":\"$(hostname -f)\"}" \
-  "${WORKER_URL}"
+  -H "X-Shared-Password: $PASSWORD" \
+  -X POST \
+  "$WORKER_URL?event=$EVENT&host=$(hostname -f)"
 ```
 
 `/etc/systemd/system/server-state-notify.service`:
