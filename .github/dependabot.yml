@@ -1,0 +1,13 @@
+#
+# Dependabot Configuration Files
+#
+# List for "package-ecosystem": https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#package-ecosystem-
+#
+version: 2
+
+updates:
+  # Checks for: NPM
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
